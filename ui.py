@@ -12,7 +12,7 @@ def draw_scenes_ui(layout, context):
     row.prop(settings, "search_query", text="", icon='VIEWZOOM', placeholder="Filter scenes...")
     row.operator("svb.refresh", text="", icon='FILE_REFRESH')
 
-    # Sub-controls
+    # Sub-controls: Sort & Single Files
     sub = layout.row(align=True)
     sub.prop(settings, "sort_by", text="")
     sub.prop(settings, "show_unversioned", text="Singles", toggle=True)
@@ -44,29 +44,30 @@ def draw_scenes_ui(layout, context):
         box = col.box()
         header = box.row(align=True)
 
-        # Expand / collapse chevron for version history
+        # Left section: chevron (only if multi-version) + left-aligned scene name button
+        left = header.row(align=True)
+        left.alignment = 'LEFT'
+
         if scene.version_count > 1:
             icon = 'TRIA_DOWN' if scene.is_expanded else 'TRIA_RIGHT'
-            exp_op = header.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op = left.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
             exp_op.scene_index = idx
-        else:
-            header.label(text="", icon='FILE_BLEND')
 
-        # Main Open button
         btn_text = f"{scene.name}  [{scene.latest_version_label}]" if scene.is_versioned else scene.name
-        open_op = header.operator("svb.open_file", text=btn_text, icon='NONE' if scene.version_count > 1 else 'NONE')
+        open_op = left.operator("svb.open_file", text=btn_text, emboss=False)
         open_op.filename = scene.latest_filename
 
-        # Quick isolate in grid button
-        iso_op = header.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        # Right section: Quick isolate in grid button
+        right = header.row(align=True)
+        right.alignment = 'RIGHT'
+        iso_op = right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene.stem
 
         # Metadata line
         meta_row = box.row(align=True)
         meta_row.scale_y = 0.8
-        info_parts = []
-        if scene.version_count > 1:
-            info_parts.append(f"{scene.version_count} versions")
+        ver_text = "1 version" if scene.version_count == 1 else f"{scene.version_count} versions"
+        info_parts = [ver_text]
         if scene.latest_filesize:
             info_parts.append(scene.latest_filesize)
         if scene.latest_mtime:
@@ -80,13 +81,17 @@ def draw_scenes_ui(layout, context):
             hist_box.scale_y = 0.9
             for ver in scene.versions:
                 v_row = hist_box.row(align=True)
-                is_current_latest = (ver.filename == scene.latest_filename)
+                v_left = v_row.row(align=True)
+                v_left.alignment = 'LEFT'
 
+                is_current_latest = (ver.filename == scene.latest_filename)
                 v_label = f"★ {ver.version_label} (Latest)" if is_current_latest else ver.version_label
-                v_open = v_row.operator("svb.open_file", text=v_label, icon='FILE_BLEND')
+                v_open = v_left.operator("svb.open_file", text=v_label, emboss=False)
                 v_open.filename = ver.filename
 
-                v_row.label(text=f"{ver.size_str}  {ver.mtime_str}")
+                v_right = v_row.row(align=True)
+                v_right.alignment = 'RIGHT'
+                v_right.label(text=f"{ver.size_str}  {ver.mtime_str}")
 
     if visible_count == 0 and scenes:
         layout.label(text="No scenes match filter", icon='INFO')

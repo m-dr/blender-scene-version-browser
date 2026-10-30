@@ -11,6 +11,7 @@ VERSION_PATTERNS = [
     re.compile(r"^(?P<stem>.+?)[vV](?P<num>\d+)(?P<ext>\.blend\d*)$"),
 ]
 
+
 def format_file_size(size_bytes: int) -> str:
     if size_bytes < 1024:
         return f"{size_bytes} B"
@@ -21,7 +22,10 @@ def format_file_size(size_bytes: int) -> str:
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
+
 def format_mtime(timestamp: float) -> str:
+    if timestamp <= 0:
+        return ""
     try:
         dt = datetime.fromtimestamp(timestamp)
         now = datetime.now()
@@ -30,6 +34,7 @@ def format_mtime(timestamp: float) -> str:
         return dt.strftime("%Y-%m-%d %H:%M")
     except Exception:
         return ""
+
 
 def parse_filename(filename: str, include_blend1: bool = False):
     """
@@ -70,6 +75,7 @@ def parse_filename(filename: str, include_blend1: bool = False):
         }
 
     return None
+
 
 def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: bool = False, sort_by: str = 'DATE'):
     """
@@ -122,6 +128,8 @@ def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: 
         versions.sort(key=lambda v: (v["version_num"], v["mtime"]))
 
         latest = versions[-1]
+        max_mtime = max((v["mtime"] for v in versions), default=0.0)
+
         results.append({
             "stem": stem,
             "name": stem,
@@ -131,8 +139,8 @@ def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: 
             "is_versioned": latest["is_versioned"],
             "version_count": len(versions),
             "latest_filesize": latest["size_str"],
-            "latest_mtime": latest["mtime_str"],
-            "latest_mtime_raw": latest["mtime"],
+            "latest_mtime": format_mtime(max_mtime) if max_mtime > 0 else latest["mtime_str"],
+            "latest_mtime_raw": max_mtime,
             "versions": list(reversed(versions)),  # reverse so newest older versions are first
         })
 

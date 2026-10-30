@@ -9,6 +9,23 @@ from bpy.props import (
 )
 
 
+def _on_settings_update(self, context):
+    try:
+        from . import operators
+        wm = getattr(context, "window_manager", None)
+        if not wm:
+            wm = bpy.context.window_manager
+        dirpath = operators.get_current_directory(context)
+        if dirpath:
+            operators.rebuild_scenes(wm, dirpath)
+            for window in wm.windows:
+                for area in window.screen.areas:
+                    if area.type == 'FILE_BROWSER':
+                        area.tag_redraw()
+    except Exception as e:
+        print(f"[SVB] Error in settings update callback: {e}")
+
+
 class SVB_VersionItem(bpy.types.PropertyGroup):
     filename: StringProperty(name="Filename")
     version_label: StringProperty(name="Version")
@@ -35,6 +52,7 @@ class SVB_Settings(bpy.types.PropertyGroup):
         name="Single Files",
         description="Include .blend files that do not follow incremental versioning",
         default=True,
+        update=_on_settings_update,
     )
     auto_refresh: BoolProperty(
         name="Auto Refresh",
@@ -44,10 +62,11 @@ class SVB_Settings(bpy.types.PropertyGroup):
     sort_by: EnumProperty(
         name="Sort By",
         items=[
-            ('DATE', "Date Modified", "Sort by latest modified date"),
+            ('DATE', "Date Modified", "Sort by latest modified date (newest first)"),
             ('NAME', "Name", "Sort alphabetically by scene name"),
         ],
         default='DATE',
+        update=_on_settings_update,
     )
     search_query: StringProperty(
         name="Filter",

@@ -4,30 +4,32 @@ from bpy.props import IntProperty, StringProperty
 from . import scanner, preferences
 
 
-def active_file_space(context):
+def active_file_space(context=None):
     """Return the active File Browser space if current context or any window has one."""
-    space = getattr(context, "space_data", None)
-    if space and space.type == 'FILE_BROWSER' and space.params:
-        if getattr(space, "browse_mode", 'FILES') == 'FILES':
-            return space
+    if context:
+        space = getattr(context, "space_data", None)
+        if space and space.type == 'FILE_BROWSER' and space.params:
+            if getattr(space, "browse_mode", 'FILES') == 'FILES':
+                return space
 
     # Fallback to inspecting open windows
     for window in bpy.context.window_manager.windows:
         for area in window.screen.areas:
             if area.type == 'FILE_BROWSER':
                 sp = area.spaces.active
-                if sp.params and getattr(sp, "browse_mode", 'FILES') == 'FILES':
+                if sp and sp.params and getattr(sp, "browse_mode", 'FILES') == 'FILES':
                     return sp
     return None
 
 
-def get_current_directory(context) -> str:
+def get_current_directory(context=None) -> str:
     space = active_file_space(context)
     if space and space.params:
         d = space.params.directory
         if isinstance(d, bytes):
             d = d.decode("utf-8", "replace")
-        return d
+        if d:
+            return d
     return bpy.context.window_manager.svb_current_dir
 
 
