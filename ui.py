@@ -42,30 +42,33 @@ def draw_scenes_ui(layout, context):
 
         visible_count += 1
         box = col.box()
-        header = box.row(align=True)
+        main_row = box.row(align=True)
 
-        # Left section: chevron (only if multi-version) + left-aligned scene name button
-        left = header.row(align=True)
-        left.alignment = 'LEFT'
-
+        # 1. Left column: Chevron (for multi-version) or BLANK1 spacer (for single version)
+        col_chev = main_row.column(align=True)
         if scene.version_count > 1:
             icon = 'TRIA_DOWN' if scene.is_expanded else 'TRIA_RIGHT'
-            exp_op = left.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op = col_chev.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
             exp_op.scene_index = idx
+        else:
+            col_chev.label(text="", icon='BLANK1')
 
+        # 2. Content column: Contains BOTH the scene name and the info row in the exact same column
+        col_body = main_row.column(align=True)
+
+        # Primary scene name row (prominent, full brightness)
+        r_name = col_body.row(align=True)
+        r_name.alignment = 'LEFT'
         btn_text = f"{scene.name}  [{scene.latest_version_label}]" if scene.is_versioned else scene.name
-        open_op = left.operator("svb.open_file", text=btn_text, emboss=False)
+        open_op = r_name.operator("svb.open_file", text=btn_text, emboss=False)
         open_op.filename = scene.latest_filename
 
-        # Right section: Quick isolate in grid button
-        right = header.row(align=True)
-        right.alignment = 'RIGHT'
-        iso_op = right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
-        iso_op.stem = scene.stem
+        # Secondary info row (subdued/fainter via active=False, slightly more compact)
+        r_info = col_body.row(align=True)
+        r_info.alignment = 'LEFT'
+        r_info.active = False
+        r_info.scale_y = 0.82
 
-        # Metadata line
-        meta_row = box.row(align=True)
-        meta_row.scale_y = 0.8
         ver_text = "1 version" if scene.version_count == 1 else f"{scene.version_count} versions"
         info_parts = [ver_text]
         if scene.latest_filesize:
@@ -73,7 +76,13 @@ def draw_scenes_ui(layout, context):
         if scene.latest_mtime:
             info_parts.append(scene.latest_mtime)
 
-        meta_row.label(text=" • ".join(info_parts))
+        r_info.label(text=" • ".join(info_parts))
+
+        # 3. Right column: Quick isolate in grid button
+        col_zoom = main_row.column(align=True)
+        col_zoom.alignment = 'RIGHT'
+        iso_op = col_zoom.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        iso_op.stem = scene.stem
 
         # Expanded history list
         if scene.is_expanded and scene.version_count > 1:
@@ -91,6 +100,7 @@ def draw_scenes_ui(layout, context):
 
                 v_right = v_row.row(align=True)
                 v_right.alignment = 'RIGHT'
+                v_right.active = False
                 v_right.label(text=f"{ver.size_str}  {ver.mtime_str}")
 
     if visible_count == 0 and scenes:
