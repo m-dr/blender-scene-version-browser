@@ -1,0 +1,17 @@
+schema_version = "1.0.0"
+
+id = "scene_version_browser"
+version = "0.1.0"
+name = "Scene Version Browser (DEV)"
+tagline = "Filter scene sequences and display only the latest version of incremental saves in the File Browser"
+maintainer = "MD <m-dr>"
+type = "add-on"
+blender_version_min = "5.2.0"
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+tags = [
+  "Pipeline",
+  "System",
+]
+website = "https://github.com/m-dr/blender-scene-version-browser"
