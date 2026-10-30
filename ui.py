@@ -42,39 +42,38 @@ def draw_scenes_ui(layout, context):
 
         visible_count += 1
         box = col.box()
+        main_row = box.row(align=True)
 
-        # 1. Header row: Chevron / Spacer + Scene Name + Magnifying Glass
-        header = box.row(align=True)
-
-        # Chevron toggle (multi-version) or BLANK1 spacer (single-version)
+        # 1. Left column: Chevron (for multi-version) or BLANK1 spacer (for single version)
+        col_left = main_row.column(align=True)
         if scene.version_count > 1:
             icon = 'TRIA_DOWN' if scene.is_expanded else 'TRIA_RIGHT'
-            exp_op = header.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op = col_left.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
             exp_op.scene_index = idx
         else:
-            header.label(text="", icon='BLANK1')
+            col_left.label(text="", icon='BLANK1')
 
-        # Primary scene name button (prominent, full brightness)
-        name_row = header.row(align=True)
-        name_row.alignment = 'LEFT'
+        # 2. Right column: Houses the scene name row (with zoom button) and info row
+        col_right = main_row.column(align=True)
+
+        # Row 1 of right column: Scene name on left, Magnifying glass on right
+        r1 = col_right.row(align=True)
+        name_left = r1.row(align=True)
+        name_left.alignment = 'LEFT'
         btn_text = f"{scene.name}  [{scene.latest_version_label}]" if scene.is_versioned else scene.name
-        open_op = name_row.operator("svb.open_file", text=btn_text, emboss=False)
+        open_op = name_left.operator("svb.open_file", text=btn_text, emboss=False)
         open_op.filename = scene.latest_filename
 
-        # Magnifying glass on the right of the header row ONLY
-        zoom_row = header.row(align=True)
-        zoom_row.alignment = 'RIGHT'
-        iso_op = zoom_row.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        zoom_right = r1.row(align=True)
+        zoom_right.alignment = 'RIGHT'
+        iso_op = zoom_right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene.stem
 
-        # 2. Separate details row underneath header (fainter, secondary theme color)
-        info_row = box.row(align=True)
-        info_row.alignment = 'LEFT'
-        info_row.active = False
-        info_row.scale_y = 0.82
-
-        # Left spacer to align info text directly below the scene name
-        info_row.label(text="", icon='BLANK1')
+        # Row 2 of right column: Info text (automatically aligned with scene name, fainter text)
+        r2 = col_right.row(align=True)
+        r2.alignment = 'LEFT'
+        r2.active = False
+        r2.scale_y = 0.82
 
         ver_text = "1 version" if scene.version_count == 1 else f"{scene.version_count} versions"
         info_parts = [ver_text]
@@ -83,7 +82,7 @@ def draw_scenes_ui(layout, context):
         if scene.latest_mtime:
             info_parts.append(scene.latest_mtime)
 
-        info_row.label(text=" • ".join(info_parts))
+        r2.label(text=" • ".join(info_parts))
 
         # 3. Expanded history list
         if scene.is_expanded and scene.version_count > 1:
