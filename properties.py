@@ -62,10 +62,12 @@ class SVB_Settings(bpy.types.PropertyGroup):
     sort_by: EnumProperty(
         name="Sort By",
         items=[
-            ('DATE', "Date Modified", "Sort by latest modified date (newest first)"),
-            ('NAME', "Name", "Sort alphabetically by scene name"),
+            ('NAME_ASC', "Name Ascending", "Sort alphabetically by scene name (A-Z)"),
+            ('NAME_DESC', "Name Descending", "Sort reverse-alphabetically by scene name (Z-A)"),
+            ('DATE_DESC', "Date Modified Descending", "Sort by latest modified date (newest first)"),
+            ('DATE_ASC', "Date Modified Ascending", "Sort by latest modified date (oldest first)"),
         ],
-        default='DATE',
+        default='NAME_ASC',
         update=_on_settings_update,
     )
     search_query: StringProperty(

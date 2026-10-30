@@ -77,7 +77,7 @@ def parse_filename(filename: str, include_blend1: bool = False):
     return None
 
 
-def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: bool = False, sort_by: str = 'DATE'):
+def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: bool = False, sort_by: str = 'NAME_ASC'):
     """
     Scan a directory for .blend files and group them into scene families.
     Returns a list of dicts describing scene families and their versions.
@@ -145,8 +145,14 @@ def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: 
         })
 
     # Sort scene groups
-    if sort_by == 'DATE':
+    if sort_by in {'NAME_ASC', 'NAME'}:
+        results.sort(key=lambda g: g["name"].lower())
+    elif sort_by == 'NAME_DESC':
+        results.sort(key=lambda g: g["name"].lower(), reverse=True)
+    elif sort_by in {'DATE_DESC', 'DATE'}:
         results.sort(key=lambda g: g["latest_mtime_raw"], reverse=True)
+    elif sort_by == 'DATE_ASC':
+        results.sort(key=lambda g: g["latest_mtime_raw"])
     else:
         results.sort(key=lambda g: g["name"].lower())
 
