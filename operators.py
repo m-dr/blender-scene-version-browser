@@ -1,7 +1,19 @@
 import os
 import bpy
-from bpy.props import IntProperty, StringProperty
+from bpy.props import StringProperty
 from . import scanner, preferences
+
+_expanded_stems = set()
+
+
+def tag_file_browsers_redraw(context=None):
+    wm = getattr(context, "window_manager", None) if context else bpy.context.window_manager
+    if not wm:
+        return
+    for window in wm.windows:
+        for area in window.screen.areas:
+            if area.type == 'FILE_BROWSER':
+                area.tag_redraw()
 
 
 def active_file_space(context=None):
@@ -30,54 +42,13 @@ def get_current_directory(context=None) -> str:
             d = d.decode("utf-8", "replace")
         if d:
             return d
-    return bpy.context.window_manager.svb_current_dir
+    return ""
 
 
-def rebuild_scenes(wm, dirpath: str):
-    """Scan disk and populate wm.svb_scenes collection."""
-    if not dirpath:
-        wm.svb_scenes.clear()
-        wm.svb_current_dir = ""
-        return
-
-    prefs = preferences.get_prefs()
-    include_blend1 = prefs.include_blend1 if prefs else False
-    settings = wm.svb_settings
-
-    scene_data = scanner.scan_directory(
-        dirpath,
-        show_unversioned=settings.show_unversioned,
-        include_blend1=include_blend1,
-        sort_by=settings.sort_by,
-    )
-
-    # Preserve expansion states if in same directory
-    expanded_stems = {
-        s.stem for s in wm.svb_scenes if s.is_expanded
-    } if dirpath == wm.svb_current_dir else set()
-
-    wm.svb_scenes.clear()
-    for g in scene_data:
-        item = wm.svb_scenes.add()
-        item.name = g["name"]
-        item.stem = g["stem"]
-        item.latest_filename = g["latest_filename"]
-        item.latest_version_label = g["latest_version_label"]
-        item.latest_filesize = g["latest_filesize"]
-        item.latest_mtime = g["latest_mtime"]
-        item.version_count = g["version_count"]
-        item.is_versioned = g["is_versioned"]
-        item.is_expanded = g["stem"] in expanded_stems
-
-        for v in g["versions"]:
-            v_item = item.versions.add()
-            v_item.filename = v["filename"]
-            v_item.version_label = v["version_label"]
-            v_item.version_num = v["version_num"]
-            v_item.size_str = v["size_str"]
-            v_item.mtime_str = v["mtime_str"]
-
-    wm.svb_current_dir = dirpath
+def rebuild_scenes(wm=None, dirpath: str = ""):
+    """Compatibility stub: invalidates scanner cache and triggers redraw."""
+    scanner.invalidate_cache()
+    tag_file_browsers_redraw()
 
 
 class SVB_OT_open_file(bpy.types.Operator):
@@ -106,7 +77,7 @@ class SVB_OT_open_file(bpy.types.Operator):
             return {'FINISHED'}
 
         # 2. Inside a standalone File Browser editor
-        target_dir = wm.svb_current_dir or get_current_directory(context)
+        target_dir = get_current_directory(context)
         filepath = os.path.join(target_dir, self.filename)
 
         if not os.path.exists(filepath):
@@ -129,14 +100,8 @@ class SVB_OT_refresh(bpy.types.Operator):
     bl_description = "Rescan the active directory for .blend files and versions"
 
     def execute(self, context):
-        dirpath = get_current_directory(context)
-        rebuild_scenes(context.window_manager, dirpath)
-
-        for window in context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type == 'FILE_BROWSER':
-                    area.tag_redraw()
-
+        scanner.invalidate_cache()
+        tag_file_browsers_redraw(context)
         return {'FINISHED'}
 
 
@@ -146,12 +111,15 @@ class SVB_OT_toggle_expand(bpy.types.Operator):
     bl_description = "Show or hide previous version saves for this scene"
     bl_options = {'INTERNAL'}
 
-    scene_index: IntProperty()
+    stem: StringProperty()
 
     def execute(self, context):
-        scenes = context.window_manager.svb_scenes
-        if 0 <= self.scene_index < len(scenes):
-            scenes[self.scene_index].is_expanded = not scenes[self.scene_index].is_expanded
+        if self.stem:
+            if self.stem in _expanded_stems:
+                _expanded_stems.remove(self.stem)
+            else:
+                _expanded_stems.add(self.stem)
+            tag_file_browsers_redraw(context)
         return {'FINISHED'}
 
 
@@ -167,10 +135,7 @@ class SVB_OT_isolate_scene(bpy.types.Operator):
         space = active_file_space(context)
         if space and space.params:
             space.params.filter_search = self.stem + "*"
-            for window in context.window_manager.windows:
-                for area in window.screen.areas:
-                    if area.type == 'FILE_BROWSER':
-                        area.tag_redraw()
+            tag_file_browsers_redraw(context)
         return {'FINISHED'}
 
 
@@ -183,10 +148,7 @@ class SVB_OT_clear_isolation(bpy.types.Operator):
         space = active_file_space(context)
         if space and space.params:
             space.params.filter_search = ""
-            for window in context.window_manager.windows:
-                for area in window.screen.areas:
-                    if area.type == 'FILE_BROWSER':
-                        area.tag_redraw()
+            tag_file_browsers_redraw(context)
         return {'FINISHED'}
 
 

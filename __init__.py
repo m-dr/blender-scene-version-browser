@@ -9,9 +9,9 @@ bl_info = {
 }
 
 import importlib
-from . import preferences, properties, scanner, operators, ui, watcher
+from . import preferences, properties, scanner, operators, ui
 
-modules = (preferences, properties, scanner, operators, ui, watcher)
+modules = (preferences, properties, scanner, operators, ui)
 
 
 def register():

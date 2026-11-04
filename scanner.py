@@ -157,3 +157,45 @@ def scan_directory(dirpath: str, show_unversioned: bool = True, include_blend1: 
         results.sort(key=lambda g: g["name"].lower())
 
     return results
+
+
+# Module-level passive cache
+_cache = {
+    "key": None,
+    "dir_mtime": 0.0,
+    "scenes": [],
+}
+
+
+def invalidate_cache():
+    """Clear cached scene scan results."""
+    global _cache
+    _cache["key"] = None
+    _cache["dir_mtime"] = 0.0
+    _cache["scenes"] = []
+
+
+def get_scenes(dirpath: str, show_unversioned: bool = True, include_blend1: bool = False, sort_by: str = 'NAME_ASC'):
+    """
+    Retrieve scene families for dirpath, serving from cache if directory
+    modification timestamp and options are unchanged.
+    """
+    global _cache
+    if not dirpath or not os.path.isdir(dirpath):
+        return []
+
+    norm_dir = os.path.abspath(dirpath)
+    try:
+        current_mtime = os.path.getmtime(norm_dir)
+    except OSError:
+        current_mtime = 0.0
+
+    cache_key = (norm_dir, show_unversioned, include_blend1, sort_by)
+    if _cache["key"] == cache_key and _cache["dir_mtime"] == current_mtime:
+        return _cache["scenes"]
+
+    scenes = scan_directory(norm_dir, show_unversioned=show_unversioned, include_blend1=include_blend1, sort_by=sort_by)
+    _cache["key"] = cache_key
+    _cache["dir_mtime"] = current_mtime
+    _cache["scenes"] = scenes
+    return scenes

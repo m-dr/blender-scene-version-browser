@@ -1,11 +1,13 @@
 import bpy
-from . import operators
+from . import operators, scanner, preferences
 
 
 def draw_scenes_ui(layout, context):
+    dirpath = operators.get_current_directory(context)
     wm = context.window_manager
     settings = wm.svb_settings
-    scenes = wm.svb_scenes
+    prefs = preferences.get_prefs()
+    include_blend1 = prefs.include_blend1 if prefs else False
 
     # Top control bar
     row = layout.row(align=True)
@@ -24,6 +26,18 @@ def draw_scenes_ui(layout, context):
         clear_row.alert = True
         clear_row.operator("svb.clear_isolation", text="Reset Grid Filter", icon='X')
 
+    if not dirpath:
+        box = layout.box()
+        box.label(text="No active directory", icon='INFO')
+        return
+
+    scenes = scanner.get_scenes(
+        dirpath,
+        show_unversioned=settings.show_unversioned,
+        include_blend1=include_blend1,
+        sort_by=settings.sort_by,
+    )
+
     if not scenes:
         box = layout.box()
         box.label(text="No .blend scenes detected", icon='INFO')
@@ -32,84 +46,84 @@ def draw_scenes_ui(layout, context):
 
     filter_text = settings.search_query.strip().lower()
 
-    # List of scenes
     col = layout.column(align=True)
     visible_count = 0
 
-    for idx, scene in enumerate(scenes):
-        if filter_text and filter_text not in scene.name.lower():
+    for scene in scenes:
+        if filter_text and filter_text not in scene["name"].lower():
             continue
 
         visible_count += 1
         box = col.box()
 
-        # 1. Header row: Left group (chevron/spacer + scene name) + expanding space + far-right zoom button
-        r1 = box.row(align=True)
+        is_expanded = scene["stem"] in operators._expanded_stems
+        has_multi = scene["version_count"] > 1
 
-        left1 = r1.row(align=True)
-        left1.alignment = 'LEFT'
+        # Card container row:
+        # col_toggle (fixed width chevron/spacer) + col_content (name/zoom + info)
+        card_row = box.row()
 
-        # Chevron toggle (multi-version) or BLANK1 spacer (single-version)
-        if scene.version_count > 1:
-            icon = 'TRIA_DOWN' if scene.is_expanded else 'TRIA_RIGHT'
-            exp_op = left1.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
-            exp_op.scene_index = idx
+        # 1. Left toggle / spacer column
+        col_toggle = card_row.column(align=True)
+        if has_multi:
+            icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
+            exp_op = col_toggle.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op.stem = scene["stem"]
         else:
-            left1.label(text="", icon='BLANK1')
+            dummy_op = col_toggle.operator("svb.toggle_expand", text="", icon='BLANK1', emboss=False)
+            dummy_op.stem = ""
 
-        # Primary scene name button (prominent, full brightness)
-        btn_text = f"{scene.name}  [{scene.latest_version_label}]" if scene.is_versioned else scene.name
-        open_op = left1.operator("svb.open_file", text=btn_text, emboss=False)
-        open_op.filename = scene.latest_filename
+        # 2. Main content column: scene name row + info row
+        col_content = card_row.column(align=True)
 
-        # Middle expanding space: pushes the zoom button flush against the far-right edge
-        r1.label(text="")
+        # Header row: Scene name (left) + Magnifying glass (right)
+        r1 = col_content.row()
+        r1_left = r1.row(align=True)
+        r1_left.alignment = 'LEFT'
 
-        # Magnifying glass pinned to the far right of the header row
-        iso_op = r1.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
-        iso_op.stem = scene.stem
+        btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
+        open_op = r1_left.operator("svb.open_file", text=btn_text, emboss=False)
+        open_op.filename = scene['latest_filename']
 
-        # 2. Details row underneath header (fainter, secondary theme color, perfectly aligned with name)
-        r2 = box.row(align=True)
-        left2 = r2.row(align=True)
-        left2.alignment = 'LEFT'
-        left2.active = False
-        left2.scale_y = 0.82
+        r1_right = r1.row(align=True)
+        r1_right.alignment = 'RIGHT'
+        iso_op = r1_right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        iso_op.stem = scene["stem"]
 
-        # Left spacer matching chevron in r1
-        left2.label(text="", icon='BLANK1')
+        # Details row: Info chunks (aligned exactly with scene name, dimmer theme color)
+        r2 = col_content.row(align=True)
+        r2.alignment = 'LEFT'
+        r2.active = False
+        r2.scale_y = 0.82
 
-        ver_text = "1 version" if scene.version_count == 1 else f"{scene.version_count} versions"
+        ver_text = "1 version" if scene["version_count"] == 1 else f"{scene['version_count']} versions"
         info_parts = [ver_text]
-        if scene.latest_filesize:
-            info_parts.append(scene.latest_filesize)
-        if scene.latest_mtime:
-            info_parts.append(scene.latest_mtime)
+        if scene["latest_filesize"]:
+            info_parts.append(scene["latest_filesize"])
+        if scene["latest_mtime"]:
+            info_parts.append(scene["latest_mtime"])
 
-        # Uses operator with emboss=False so it shares the exact same widget margins as the scene name above
-        info_op = left2.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
-        info_op.filename = scene.latest_filename
+        info_op = r2.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
+        info_op.filename = scene["latest_filename"]
 
         # 3. Expanded history list
-        if scene.is_expanded and scene.version_count > 1:
+        if is_expanded and has_multi:
             hist_box = box.box().column(align=True)
             hist_box.scale_y = 0.9
-            for ver in scene.versions:
-                v_row = hist_box.row(align=True)
+            for ver in scene["versions"]:
+                v_row = hist_box.row()
                 v_left = v_row.row(align=True)
                 v_left.alignment = 'LEFT'
 
-                is_current_latest = (ver.filename == scene.latest_filename)
-                v_label = f"★ {ver.version_label} (Latest)" if is_current_latest else ver.version_label
+                is_current_latest = (ver["filename"] == scene["latest_filename"])
+                v_label = f"★ {ver['version_label']} (Latest)" if is_current_latest else ver["version_label"]
                 v_open = v_left.operator("svb.open_file", text=v_label, emboss=False)
-                v_open.filename = ver.filename
-
-                v_row.label(text="")  # push details to right edge
+                v_open.filename = ver["filename"]
 
                 v_right = v_row.row(align=True)
                 v_right.alignment = 'RIGHT'
                 v_right.active = False
-                v_right.label(text=f"{ver.size_str}  {ver.mtime_str}")
+                v_right.label(text=f"{ver['size_str']}  {ver['mtime_str']}")
 
     if visible_count == 0 and scenes:
         layout.label(text="No scenes match filter", icon='INFO')

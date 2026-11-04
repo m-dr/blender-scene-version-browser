@@ -1,35 +1,29 @@
 import bpy
-from bpy.props import BoolProperty, FloatProperty
+from bpy.props import BoolProperty
+
+
+def _on_pref_update(self, context):
+    try:
+        from . import scanner, operators
+        scanner.invalidate_cache()
+        operators.tag_file_browsers_redraw(context)
+    except Exception:
+        pass
 
 
 class SVB_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__ or "scene_version_browser"
 
-    auto_open_options: BoolProperty(
-        name="Auto-Open Sidebar in File Dialogs",
-        description="Automatically open the right-hand options sidebar in File > Open and import dialogs",
-        default=True,
-    )
-
     include_blend1: BoolProperty(
         name="Include .blend1 Backups",
         description="Include .blend1 and older backup files in the version history",
         default=False,
-    )
-
-    poll_interval: FloatProperty(
-        name="Poll Interval (seconds)",
-        description="How often to check for directory navigation in the File Browser",
-        default=0.5,
-        min=0.1,
-        max=5.0,
+        update=_on_pref_update,
     )
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "auto_open_options")
         layout.prop(self, "include_blend1")
-        layout.prop(self, "poll_interval")
 
 
 def get_prefs() -> SVB_AddonPreferences:
