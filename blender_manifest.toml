@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "scene_version_browser"
-version = "0.1.1"
+version = "0.1.2"
 name = "Scene Version Browser (DEV)"
 tagline = "Show only the latest version of incremental scene saves"
 maintainer = "MD <m-dr>"

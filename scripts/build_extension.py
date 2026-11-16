@@ -37,6 +37,16 @@ def sanitize_init_text(text: str) -> str:
     return re.sub(r'("name":\s*"[^"]*?)\s*[\(\[]DEV[\)\]]', r'\1', text)
 
 
+def sanitize_python_text(text: str) -> str:
+    """Strip the cosmetic (DEV) marker from any text shipped in a release.
+
+    Panel `bl_label`s and other user-visible strings carry the marker during
+    development (see the add-on dev conventions); shipping it to the extension
+    repository is a mistake, so release archives must be marker-free.
+    """
+    return re.sub(r'\s*[\(\[]DEV[\)\]]', '', text)
+
+
 def main():
     if not os.path.exists(MANIFEST_PATH):
         raise FileNotFoundError(f"Missing manifest: {MANIFEST_PATH}")
@@ -72,6 +82,10 @@ def main():
                     with open(full_path, "r", encoding="utf-8") as f_in:
                         content = sanitize_init_text(f_in.read())
                     z.writestr("__init__.py", content.encode("utf-8"))
+                elif ext.lower() in {".py", ".toml"}:
+                    with open(full_path, "r", encoding="utf-8") as f_in:
+                        content = sanitize_python_text(f_in.read())
+                    z.writestr(rel_path, content.encode("utf-8"))
                 elif ext.lower() in INCLUDE_EXTENSIONS or file in {"LICENSE"}:
                     z.write(full_path, arcname=rel_path)
 
