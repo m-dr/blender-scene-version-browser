@@ -1,5 +1,59 @@
 import bpy
+import traceback
+
 from . import operators, scanner, preferences
+
+# Blender 5.3 layout changes: in a real "File > Open" dialog the File Browser
+# HEADER region is collapsed (so header draw hooks are invisible) and the
+# TOOL_PROPS side-bar region is hidden by default (`show_region_tool_props`
+# False). Both regions are required by this add-on, so track which file
+# browsers have already been visited and reveal the details region once for
+# each - a later manual collapse is respected.
+_seen_filebrowsers = set()
+
+
+def _iter_filebrowser_spaces():
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type != 'FILE_BROWSER':
+                continue
+            for space in area.spaces:
+                if space.type == 'FILE_BROWSER':
+                    yield window, area, space
+
+
+def _ensure_sidebar_region():
+    """Reveal the File Browser details region the scene list lives in (Blender 5.3)."""
+    try:
+        live_keys = set()
+        for window, area, space in list(_iter_filebrowser_spaces()):
+            key = (window.as_pointer(), area.as_pointer())
+            live_keys.add(key)
+            if key in _seen_filebrowsers:
+                continue
+            _seen_filebrowsers.add(key)
+            if getattr(space, "browse_mode", "FILES") != "FILES":
+                continue
+            if getattr(space, "show_region_tool_props", True) is False:
+                try:
+                    space.show_region_tool_props = True
+                    area.tag_redraw()
+                except Exception:
+                    traceback.print_exc()
+        _seen_filebrowsers.intersection_update(live_keys)
+    except Exception:
+        traceback.print_exc()
+    return 0.5
+
+
+def _tool_props_visible(context):
+    area = getattr(context, "area", None)
+    if area is None:
+        return False
+    for region in area.regions:
+        if region.type == 'TOOL_PROPS' and region.width > 1:
+            return True
+    return False
 
 
 def draw_scenes_ui(layout, context):
@@ -104,7 +158,7 @@ def draw_scenes_ui(layout, context):
             info_parts.append(scene["latest_mtime"])
 
         info_op = r2.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
-        info_op.filename = scene["latest_filename"]
+        info_op.filename = scene['latest_filename']
 
         # 3. Expanded history list
         if is_expanded and has_multi:
@@ -129,6 +183,17 @@ def draw_scenes_ui(layout, context):
         layout.label(text="No scenes match filter", icon='INFO')
 
 
+def _draw_with_guard(panel, context):
+    try:
+        draw_scenes_ui(panel.layout, context)
+    except Exception:
+        traceback.print_exc()
+        try:
+            panel.layout.label(text="Scene Versions: error (see console)", icon='ERROR')
+        except Exception:
+            pass
+
+
 class SVB_PT_operator_sidebar(bpy.types.Panel):
     """Panel injected into the right sidebar (TOOL_PROPS) of file dialogs (File > Open, Link, Append)."""
     bl_idname = "SVB_PT_operator_sidebar"
@@ -138,7 +203,28 @@ class SVB_PT_operator_sidebar(bpy.types.Panel):
     bl_order = 10
 
     def draw(self, context):
-        draw_scenes_ui(self.layout, context)
+        _draw_with_guard(self, context)
+
+
+class SVB_PT_tools_sidebar(bpy.types.Panel):
+    """Fallback in the always-visible left sidebar when the details region is hidden.
+
+    Blender 5.3 hides the File Browser's TOOL_PROPS (details) region by default;
+    this panel makes the scene list reachable even then (e.g. after the user
+    closes the details side-bar).
+    """
+    bl_idname = "SVB_PT_tools_sidebar"
+    bl_label = "Scene Versions (DEV)"
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return not _tool_props_visible(context)
+
+    def draw(self, context):
+        _draw_with_guard(self, context)
 
 
 class SVB_PT_header_popover(bpy.types.Panel):
@@ -150,18 +236,22 @@ class SVB_PT_header_popover(bpy.types.Panel):
     bl_ui_units_x = 22
 
     def draw(self, context):
-        draw_scenes_ui(self.layout, context)
+        _draw_with_guard(self, context)
 
 
 def draw_header_button(self, context):
     """Draw popover trigger in File Browser header next to filter."""
-    space = getattr(context, "space_data", None)
-    if space and getattr(space, "browse_mode", 'FILES') == 'FILES':
-        self.layout.popover(panel="SVB_PT_header_popover", text="Scenes", icon='FILE_BLEND')
+    try:
+        space = getattr(context, "space_data", None)
+        if space and getattr(space, "browse_mode", 'FILES') == 'FILES':
+            self.layout.popover(panel="SVB_PT_header_popover", text="Scenes", icon='FILE_BLEND')
+    except Exception:
+        traceback.print_exc()
 
 
 classes = (
     SVB_PT_operator_sidebar,
+    SVB_PT_tools_sidebar,
     SVB_PT_header_popover,
 )
 
@@ -170,9 +260,22 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.FILEBROWSER_HT_header.append(draw_header_button)
+    if not bpy.app.timers.is_registered(_ensure_sidebar_region):
+        bpy.app.timers.register(_ensure_sidebar_region, first_interval=0.25, persistent=True)
 
 
 def unregister():
-    bpy.types.FILEBROWSER_HT_header.remove(draw_header_button)
+    if bpy.app.timers.is_registered(_ensure_sidebar_region):
+        try:
+            bpy.app.timers.unregister(_ensure_sidebar_region)
+        except Exception:
+            pass
+    try:
+        bpy.types.FILEBROWSER_HT_header.remove(draw_header_button)
+    except Exception:
+        traceback.print_exc()
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            traceback.print_exc()
