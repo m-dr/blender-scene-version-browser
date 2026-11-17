@@ -148,7 +148,47 @@ def draw_scenes_ui(layout, context):
         layout.label(text="No scenes match filter", icon='INFO')
 
 
+def _sidebar_location(prefs):
+    if prefs is None:
+        return 'LEFT'
+    return getattr(prefs, "sidebar_location", 'LEFT')
+
+
+def _draw_sidebar_panel(panel, context):
+    """Draw a native collapsible section, honouring the add-on preferences.
+
+    Blender 5.3's ``UILayout.panel``/``panel_prop`` provides the collapsible
+    header and body. ``panel_prop`` binds the open state to a bool property so
+    "Remember Last" survives throw-away file dialog screens (the property lives
+    in the add-on preferences, not in the transient UI layout).
+    """
+    try:
+        layout = panel.layout
+        prefs = preferences.get_prefs()
+        state = getattr(prefs, "panel_state", 'COLLAPSED') if prefs else 'COLLAPSED'
+
+        header = None
+        body = None
+        if state == 'REMEMBER' and prefs is not None:
+            header, body = layout.panel_prop(prefs, "panel_expanded")
+        else:
+            header, body = layout.panel("svb_scene_list", default_closed=(state != 'EXPANDED'))
+
+        if header is not None:
+            header.label(text="Scene Versions (DEV)")
+
+        if body is not None:
+            draw_scenes_ui(body, context)
+    except Exception:
+        traceback.print_exc()
+        try:
+            panel.layout.label(text="Scene Versions: error (see console)", icon='ERROR')
+        except Exception:
+            pass
+
+
 def _draw_with_guard(panel, context):
+    """Popover content (the popover has its own Blender-drawn title)."""
     try:
         draw_scenes_ui(panel.layout, context)
     except Exception:
@@ -160,36 +200,46 @@ def _draw_with_guard(panel, context):
 
 
 class SVB_PT_operator_sidebar(bpy.types.Panel):
-    """Panel injected into the right sidebar (TOOL_PROPS) of file dialogs (File > Open, Link, Append)."""
+    """Scene list in the details sidebar (used when that sidebar is visible)."""
     bl_idname = "SVB_PT_operator_sidebar"
     bl_label = "Scene Versions (DEV)"
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_order = 10
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        location = _sidebar_location(preferences.get_prefs())
+        if location == 'LEFT':
+            return False
+        if location == 'AUTO':
+            return _tool_props_visible(context)
+        return True
 
     def draw(self, context):
-        _draw_with_guard(self, context)
+        _draw_sidebar_panel(self, context)
 
 
 class SVB_PT_tools_sidebar(bpy.types.Panel):
-    """Fallback in the always-visible left sidebar when the details region is hidden.
-
-    Blender 5.3 hides the File Browser's TOOL_PROPS (details) region by default;
-    this panel makes the scene list reachable even then (e.g. after the user
-    closes the details side-bar).
-    """
+    """Scene list in the always-visible left sidebar (under Bookmarks/Recent)."""
     bl_idname = "SVB_PT_tools_sidebar"
     bl_label = "Scene Versions (DEV)"
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        return not _tool_props_visible(context)
+        location = _sidebar_location(preferences.get_prefs())
+        if location == 'RIGHT':
+            return False
+        if location == 'AUTO':
+            return not _tool_props_visible(context)
+        return True
 
     def draw(self, context):
-        _draw_with_guard(self, context)
+        _draw_sidebar_panel(self, context)
 
 
 class SVB_PT_header_popover(bpy.types.Panel):
