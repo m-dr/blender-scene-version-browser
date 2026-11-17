@@ -3,7 +3,6 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     PointerProperty,
-    StringProperty,
 )
 
 
@@ -32,11 +31,6 @@ class SVB_Settings(bpy.types.PropertyGroup):
         ],
         default='NAME_ASC',
         update=_on_settings_update,
-    )
-    search_query: StringProperty(
-        name="Filter",
-        description="Filter scenes by name",
-        default="",
     )
 
 

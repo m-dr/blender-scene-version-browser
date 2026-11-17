@@ -28,15 +28,12 @@ def draw_scenes_ui(layout, context):
     prefs = preferences.get_prefs()
     include_blend1 = prefs.include_blend1 if prefs else False
 
-    # Top control bar
-    row = layout.row(align=True)
-    row.prop(settings, "search_query", text="", icon='VIEWZOOM', placeholder="Filter scenes...")
-    row.operator("svb.refresh", text="", icon='FILE_REFRESH')
-
-    # Sub-controls: Sort & Single Files
-    sub = layout.row(align=True)
-    sub.prop(settings, "sort_by", text="")
-    sub.prop(settings, "show_unversioned", text="Singles", toggle=True)
+    # Controls: Sort (left half) & Single Files (right half)
+    sub = layout.split(factor=0.5, align=True)
+    row_sort = sub.row(align=True)
+    row_sort.prop(settings, "sort_by", text="")
+    row_view = sub.row(align=True)
+    row_view.prop(settings, "show_unversioned", text="Singles", toggle=True)
 
     # Main view search clear if filtered
     space = operators.active_file_space(context)
@@ -63,39 +60,18 @@ def draw_scenes_ui(layout, context):
         box.operator("svb.refresh", text="Scan Directory", icon='FILE_REFRESH')
         return
 
-    filter_text = settings.search_query.strip().lower()
-
     col = layout.column(align=True)
-    visible_count = 0
 
     for scene in scenes:
-        if filter_text and filter_text not in scene["name"].lower():
-            continue
-
-        visible_count += 1
         box = col.box()
 
         is_expanded = scene["stem"] in operators._expanded_stems
         has_multi = scene["version_count"] > 1
 
-        # Card container row:
-        # col_toggle (fixed width chevron/spacer) + col_content (name/zoom + info)
-        card_row = box.row()
+        # Card content: name row (name + isolate) and info row (expand toggle + details)
+        col_content = box.column(align=True)
 
-        # 1. Left toggle / spacer column
-        col_toggle = card_row.column(align=True)
-        if has_multi:
-            icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-            exp_op = col_toggle.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
-            exp_op.stem = scene["stem"]
-        else:
-            dummy_op = col_toggle.operator("svb.toggle_expand", text="", icon='BLANK1', emboss=False)
-            dummy_op.stem = ""
-
-        # 2. Main content column: scene name row + info row
-        col_content = card_row.column(align=True)
-
-        # Header row: Scene name (left) + Magnifying glass (right)
+        # Name row: Scene name (left) + Magnifying glass (right)
         r1 = col_content.row()
         r1_left = r1.row(align=True)
         r1_left.alignment = 'LEFT'
@@ -109,11 +85,19 @@ def draw_scenes_ui(layout, context):
         iso_op = r1_right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene["stem"]
 
-        # Details row: Info chunks (aligned exactly with scene name, dimmer theme color)
+        # Details row: expand chevron (multi-version only) + version/size/date
         r2 = col_content.row(align=True)
         r2.alignment = 'LEFT'
-        r2.active = False
-        r2.scale_y = 0.82
+
+        if has_multi:
+            icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
+            exp_op = r2.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op.stem = scene["stem"]
+
+        info_row = r2.row(align=True)
+        info_row.alignment = 'LEFT'
+        info_row.active = False
+        info_row.scale_y = 0.82
 
         ver_text = "1 version" if scene["version_count"] == 1 else f"{scene['version_count']} versions"
         info_parts = [ver_text]
@@ -122,7 +106,7 @@ def draw_scenes_ui(layout, context):
         if scene["latest_mtime"]:
             info_parts.append(scene["latest_mtime"])
 
-        info_op = r2.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
+        info_op = info_row.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
         info_op.filename = scene['latest_filename']
 
         # 3. Expanded history list
@@ -143,9 +127,6 @@ def draw_scenes_ui(layout, context):
                 v_right.alignment = 'RIGHT'
                 v_right.active = False
                 v_right.label(text=f"{ver['size_str']}  {ver['mtime_str']}")
-
-    if visible_count == 0 and scenes:
-        layout.label(text="No scenes match filter", icon='INFO')
 
 
 def _sidebar_location(prefs):
