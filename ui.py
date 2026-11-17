@@ -134,25 +134,40 @@ def _sidebar_location(prefs):
     return getattr(prefs, "sidebar_location", 'LEFT')
 
 
-def _draw_sidebar_panel(panel, context):
-    """Draw a native collapsible section, honouring the add-on preferences.
+_panel_defaults_applied = False
 
-    Blender 5.3's ``UILayout.panel``/``panel_prop`` provides the collapsible
-    header and body. ``panel_prop`` binds the open state to a bool property so
-    "Remember Last" survives throw-away file dialog screens (the property lives
-    in the add-on preferences, not in the transient UI layout).
+
+def _apply_panel_mode_default(prefs):
+    """Apply the Collapsed/Expanded default once per session (no timers).
+
+    The collapsible section always uses ``UILayout.panel_prop``: the region-stored
+    state of ``UILayout.panel`` makes Blender clip the panel body inside throw-away
+    file-dialog screens. ``panel_prop`` keeps the state in the add-on preferences.
     """
+    global _panel_defaults_applied
+    if _panel_defaults_applied or prefs is None:
+        return
+    _panel_defaults_applied = True
+    state = getattr(prefs, "panel_state", 'COLLAPSED')
+    if state == 'COLLAPSED':
+        prefs.panel_expanded = False
+    elif state == 'EXPANDED':
+        prefs.panel_expanded = True
+
+
+def _draw_sidebar_panel(panel, context):
+    """Draw a native collapsible section, honouring the add-on preferences."""
     try:
         layout = panel.layout
         prefs = preferences.get_prefs()
-        state = getattr(prefs, "panel_state", 'COLLAPSED') if prefs else 'COLLAPSED'
+        _apply_panel_mode_default(prefs)
 
         header = None
         body = None
-        if state == 'REMEMBER' and prefs is not None:
+        if prefs is not None:
             header, body = layout.panel_prop(prefs, "panel_expanded")
         else:
-            header, body = layout.panel("svb_scene_list", default_closed=(state != 'EXPANDED'))
+            draw_scenes_ui(layout, context)
 
         if header is not None:
             header.label(text="Scene Versions (DEV)")

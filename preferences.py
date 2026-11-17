@@ -11,6 +11,15 @@ def _on_pref_update(self, context):
         pass
 
 
+def _on_panel_state_update(self, context):
+    # The panel always reads panel_expanded; the mode only sets its default.
+    if self.panel_state == 'COLLAPSED':
+        self.panel_expanded = False
+    elif self.panel_state == 'EXPANDED':
+        self.panel_expanded = True
+    _on_pref_update(self, context)
+
+
 class SVB_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__ or "scene_version_browser"
 
@@ -42,19 +51,18 @@ class SVB_AddonPreferences(bpy.types.AddonPreferences):
         name="Panel",
         description="Initial open/closed state of the scene list panel",
         items=[
-            ('COLLAPSED', "Collapsed",
-             "Always start folded (you can still expand it inside a file dialog)"),
-            ('EXPANDED', "Expanded", "Always start open"),
+            ('COLLAPSED', "Collapsed", "Start folded (default for a new session)"),
+            ('EXPANDED', "Expanded", "Start open"),
             ('REMEMBER', "Remember Last",
-             "Reopen with the open/closed state you left it in; clicking the panel header updates it"),
+             "Keep whatever open/closed state you left the panel in"),
         ],
         default='COLLAPSED',
-        update=_on_pref_update,
+        update=_on_panel_state_update,
     )
 
     panel_expanded: BoolProperty(
         name="Panel Open",
-        description="Open state stored by the \"Remember Last\" panel mode (also toggled by the panel header)",
+        description="Current open state of the scene list panel (also toggled by the panel header)",
         default=False,
         update=_on_pref_update,
     )
@@ -64,8 +72,7 @@ class SVB_AddonPreferences(bpy.types.AddonPreferences):
         col = layout.column()
         col.prop(self, "sidebar_location")
         col.prop(self, "panel_state")
-        if self.panel_state == 'REMEMBER':
-            col.prop(self, "panel_expanded")
+        col.prop(self, "panel_expanded")
         col.separator()
         col.prop(self, "include_blend1")
 
