@@ -85,19 +85,22 @@ def draw_scenes_ui(layout, context):
         iso_op = r1_right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene["stem"]
 
-        # Details row: expand chevron (multi-version only) + version/size/date
+        # Details row: expand chevron (multi-version only) + version/size/date.
+        # The chevron and the text live in the same row and share one scale so
+        # they stay on the same baseline; only the text sub-row is dimmed.
         r2 = col_content.row(align=True)
         r2.alignment = 'LEFT'
+        r2.scale_y = 0.82
 
         if has_multi:
+            chev_row = r2.row(align=True)
             icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-            exp_op = r2.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op = chev_row.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
             exp_op.stem = scene["stem"]
 
         info_row = r2.row(align=True)
         info_row.alignment = 'LEFT'
         info_row.active = False
-        info_row.scale_y = 0.82
 
         ver_text = "1 version" if scene["version_count"] == 1 else f"{scene['version_count']} versions"
         info_parts = [ver_text]
