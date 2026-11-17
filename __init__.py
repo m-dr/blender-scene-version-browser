@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Scene Version Browser (DEV)",
     "author": "MD <m-dr>",
-    "version": (0, 1, 6),
+    "version": (0, 1, 7),
     "blender": (5, 2, 0),
     "location": "File Browser > Sidebar & Header",
     "description": "Filter scene sequences and display only the latest version of incremental saves in the File Browser",
