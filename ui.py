@@ -72,21 +72,18 @@ def draw_scenes_ui(layout, context):
         # left, version/size/date (dim) and the magnifier at the right end.
         col_content = box.column(align=True)
 
-        # Name row: scene name
+        # Name row: plain label, so the name starts flush at the card edge with no
+        # button padding (an operator button indents the text).
         r1 = col_content.row(align=True)
-        r1.alignment = 'LEFT'
-
         btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
-        open_op = r1.operator("svb.open_file", text=btn_text, emboss=False)
-        open_op.filename = scene['latest_filename']
+        r1.label(text=btn_text)
 
         # Info row
         r2 = col_content.row(align=True)
 
         if has_multi:
-            chev_row = r2.row(align=True)
             icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-            exp_op = chev_row.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
+            exp_op = r2.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
             exp_op.stem = scene["stem"]
 
         info_row = r2.row(align=True)
