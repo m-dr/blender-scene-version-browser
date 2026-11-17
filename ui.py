@@ -3,47 +3,12 @@ import traceback
 
 from . import operators, scanner, preferences
 
-# Blender 5.3 layout changes: in a real "File > Open" dialog the File Browser
-# HEADER region is collapsed (so header draw hooks are invisible) and the
-# TOOL_PROPS side-bar region is hidden by default (`show_region_tool_props`
-# False). Both regions are required by this add-on, so track which file
-# browsers have already been visited and reveal the details region once for
-# each - a later manual collapse is respected.
-_seen_filebrowsers = set()
-
-
-def _iter_filebrowser_spaces():
-    for window in bpy.context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.type != 'FILE_BROWSER':
-                continue
-            for space in area.spaces:
-                if space.type == 'FILE_BROWSER':
-                    yield window, area, space
-
-
-def _ensure_sidebar_region():
-    """Reveal the File Browser details region the scene list lives in (Blender 5.3)."""
-    try:
-        live_keys = set()
-        for window, area, space in list(_iter_filebrowser_spaces()):
-            key = (window.as_pointer(), area.as_pointer())
-            live_keys.add(key)
-            if key in _seen_filebrowsers:
-                continue
-            _seen_filebrowsers.add(key)
-            if getattr(space, "browse_mode", "FILES") != "FILES":
-                continue
-            if getattr(space, "show_region_tool_props", True) is False:
-                try:
-                    space.show_region_tool_props = True
-                    area.tag_redraw()
-                except Exception:
-                    traceback.print_exc()
-        _seen_filebrowsers.intersection_update(live_keys)
-    except Exception:
-        traceback.print_exc()
-    return 0.5
+# Blender 5.3 collapses the File Browser HEADER region inside real file dialogs
+# (so header draw hooks are invisible there) and hides the TOOL_PROPS details
+# side-bar by default. The scene list therefore lives in the always-visible
+# left TOOLS side-bar, which needs no timers or watchers: Blender keeps that
+# region on screen and the user can collapse the panel if vertical space is
+# tight (it starts collapsed).
 
 
 def _tool_props_visible(context):
@@ -260,16 +225,9 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.FILEBROWSER_HT_header.append(draw_header_button)
-    if not bpy.app.timers.is_registered(_ensure_sidebar_region):
-        bpy.app.timers.register(_ensure_sidebar_region, first_interval=0.25, persistent=True)
 
 
 def unregister():
-    if bpy.app.timers.is_registered(_ensure_sidebar_region):
-        try:
-            bpy.app.timers.unregister(_ensure_sidebar_region)
-        except Exception:
-            pass
     try:
         bpy.types.FILEBROWSER_HT_header.remove(draw_header_button)
     except Exception:
