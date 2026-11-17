@@ -68,29 +68,20 @@ def draw_scenes_ui(layout, context):
         is_expanded = scene["stem"] in operators._expanded_stems
         has_multi = scene["version_count"] > 1
 
-        # Card content: name row (name + isolate) and info row (expand toggle + details)
+        # Card content: name row, then an info row with the expand chevron on the
+        # left, version/size/date (dim) and the magnifier at the right end.
         col_content = box.column(align=True)
 
-        # Name row: Scene name (left) + Magnifying glass (right)
-        r1 = col_content.row()
-        r1_left = r1.row(align=True)
-        r1_left.alignment = 'LEFT'
+        # Name row: scene name
+        r1 = col_content.row(align=True)
+        r1.alignment = 'LEFT'
 
         btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
-        open_op = r1_left.operator("svb.open_file", text=btn_text, emboss=False)
+        open_op = r1.operator("svb.open_file", text=btn_text, emboss=False)
         open_op.filename = scene['latest_filename']
 
-        r1_right = r1.row(align=True)
-        r1_right.alignment = 'RIGHT'
-        iso_op = r1_right.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
-        iso_op.stem = scene["stem"]
-
-        # Details row: expand chevron (multi-version only) + version/size/date.
-        # The chevron and the text live in the same row and share one scale so
-        # they stay on the same baseline; only the text sub-row is dimmed.
+        # Info row
         r2 = col_content.row(align=True)
-        r2.alignment = 'LEFT'
-        r2.scale_y = 0.82
 
         if has_multi:
             chev_row = r2.row(align=True)
@@ -111,6 +102,11 @@ def draw_scenes_ui(layout, context):
 
         info_op = info_row.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
         info_op.filename = scene['latest_filename']
+
+        iso_row = r2.row(align=True)
+        iso_row.alignment = 'RIGHT'
+        iso_op = iso_row.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        iso_op.stem = scene["stem"]
 
         # 3. Expanded history list
         if is_expanded and has_multi:
