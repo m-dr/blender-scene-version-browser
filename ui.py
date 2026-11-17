@@ -68,34 +68,24 @@ def draw_scenes_ui(layout, context):
         is_expanded = scene["stem"] in operators._expanded_stems
         has_multi = scene["version_count"] > 1
 
-        # Card content: name row, then an info row with the expand chevron on the
-        # left, version/size/date (dim) and the magnifier at the right end.
+        # Both lines are single full-width buttons with the same icon inset, so
+        # their text starts on the same x. Line 1 opens the latest version; line 2
+        # is the expander (chevron icon) or, for a single version, another opener.
         col_content = box.column(align=True)
 
-        # Name row: clickable button spanning the line (button text is inset by
-        # Blender); the preference can trade clickability for a flush label.
         clickable_name = prefs is None or getattr(prefs, "name_clickable", True)
         btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
 
         r1 = col_content.row(align=True)
+        r1.alignment = 'LEFT'
         if clickable_name:
-            r1.alignment = 'LEFT'
-            open_op = r1.operator("svb.open_file", text=btn_text, emboss=False)
-            open_op.filename = scene['latest_filename']
+            name_op = r1.operator("svb.open_file", text=btn_text, icon='BLANK1', emboss=False)
+            name_op.filename = scene['latest_filename']
         else:
             r1.label(text=btn_text)
 
-        # Info row
         r2 = col_content.row(align=True)
-
-        if has_multi:
-            icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-            exp_op = r2.operator("svb.toggle_expand", text="", icon=icon, emboss=False)
-            exp_op.stem = scene["stem"]
-
-        info_row = r2.row(align=True)
-        info_row.alignment = 'LEFT'
-        info_row.active = False
+        r2.alignment = 'LEFT'
 
         ver_text = "1 version" if scene["version_count"] == 1 else f"{scene['version_count']} versions"
         info_parts = [ver_text]
@@ -103,13 +93,19 @@ def draw_scenes_ui(layout, context):
             info_parts.append(scene["latest_filesize"])
         if scene["latest_mtime"]:
             info_parts.append(scene["latest_mtime"])
+        info_text = " • ".join(info_parts)
 
-        info_op = info_row.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
-        info_op.filename = scene['latest_filename']
+        if has_multi:
+            icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
+            info_op = r2.operator("svb.toggle_expand", text=info_text, icon=icon, emboss=False)
+            info_op.stem = scene["stem"]
+        else:
+            info_op = r2.operator("svb.open_file", text=info_text, icon='BLANK1', emboss=False)
+            info_op.filename = scene['latest_filename']
 
-        # Magnifier is a direct child of the row: no extra nested-row margin, and
-        # the expanding info button pushes it to the right edge.
-        iso_op = r2.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        iso_row = r2.row(align=True)
+        iso_row.alignment = 'RIGHT'
+        iso_op = iso_row.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene["stem"]
 
         # 3. Expanded history list
