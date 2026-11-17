@@ -68,24 +68,28 @@ def draw_scenes_ui(layout, context):
         is_expanded = scene["stem"] in operators._expanded_stems
         has_multi = scene["version_count"] > 1
 
-        # Both lines are single full-width buttons with the same icon inset, so
-        # their text starts on the same x. Line 1 opens the latest version; line 2
-        # is the expander (chevron icon) or, for a single version, another opener.
+        # Both lines use the same structure (left-aligned text wrapper with the
+        # button's icon inset), so their text starts on the same x. The info row
+        # also gets a separate right-aligned wrapper so the magnifier sits at the
+        # card's right edge instead of floating after the text.
         col_content = box.column(align=True)
 
         clickable_name = prefs is None or getattr(prefs, "name_clickable", True)
         btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
 
         r1 = col_content.row(align=True)
-        r1.alignment = 'LEFT'
+        name_wrap = r1.row(align=True)
+        name_wrap.alignment = 'LEFT'
         if clickable_name:
-            name_op = r1.operator("svb.open_file", text=btn_text, icon='BLANK1', emboss=False)
+            name_op = name_wrap.operator("svb.open_file", text=btn_text, icon='BLANK1', emboss=False)
             name_op.filename = scene['latest_filename']
         else:
-            r1.label(text=btn_text)
+            name_wrap.label(text=btn_text)
 
         r2 = col_content.row(align=True)
-        r2.alignment = 'LEFT'
+
+        info_wrap = r2.row(align=True)
+        info_wrap.alignment = 'LEFT'
 
         ver_text = "1 version" if scene["version_count"] == 1 else f"{scene['version_count']} versions"
         info_parts = [ver_text]
@@ -97,15 +101,15 @@ def draw_scenes_ui(layout, context):
 
         if has_multi:
             icon = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-            info_op = r2.operator("svb.toggle_expand", text=info_text, icon=icon, emboss=False)
+            info_op = info_wrap.operator("svb.toggle_expand", text=info_text, icon=icon, emboss=False)
             info_op.stem = scene["stem"]
         else:
-            info_op = r2.operator("svb.open_file", text=info_text, icon='BLANK1', emboss=False)
+            info_op = info_wrap.operator("svb.open_file", text=info_text, icon='BLANK1', emboss=False)
             info_op.filename = scene['latest_filename']
 
-        iso_row = r2.row(align=True)
-        iso_row.alignment = 'RIGHT'
-        iso_op = iso_row.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        iso_wrap = r2.row(align=True)
+        iso_wrap.alignment = 'RIGHT'
+        iso_op = iso_wrap.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene["stem"]
 
         # 3. Expanded history list
