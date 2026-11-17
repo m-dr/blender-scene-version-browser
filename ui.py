@@ -72,11 +72,18 @@ def draw_scenes_ui(layout, context):
         # left, version/size/date (dim) and the magnifier at the right end.
         col_content = box.column(align=True)
 
-        # Name row: plain label, so the name starts flush at the card edge with no
-        # button padding (an operator button indents the text).
-        r1 = col_content.row(align=True)
+        # Name row: clickable button spanning the line (button text is inset by
+        # Blender); the preference can trade clickability for a flush label.
+        clickable_name = prefs is None or getattr(prefs, "name_clickable", True)
         btn_text = f"{scene['name']}  [{scene['latest_version_label']}]" if scene['is_versioned'] else scene['name']
-        r1.label(text=btn_text)
+
+        r1 = col_content.row(align=True)
+        if clickable_name:
+            r1.alignment = 'LEFT'
+            open_op = r1.operator("svb.open_file", text=btn_text, emboss=False)
+            open_op.filename = scene['latest_filename']
+        else:
+            r1.label(text=btn_text)
 
         # Info row
         r2 = col_content.row(align=True)
@@ -100,9 +107,9 @@ def draw_scenes_ui(layout, context):
         info_op = info_row.operator("svb.open_file", text=" • ".join(info_parts), emboss=False)
         info_op.filename = scene['latest_filename']
 
-        iso_row = r2.row(align=True)
-        iso_row.alignment = 'RIGHT'
-        iso_op = iso_row.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
+        # Magnifier is a direct child of the row: no extra nested-row margin, and
+        # the expanding info button pushes it to the right edge.
+        iso_op = r2.operator("svb.isolate_scene", text="", icon='VIEWZOOM', emboss=False)
         iso_op.stem = scene["stem"]
 
         # 3. Expanded history list

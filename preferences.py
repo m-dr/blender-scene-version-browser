@@ -67,6 +67,14 @@ class SVB_AddonPreferences(bpy.types.AddonPreferences):
         update=_on_pref_update,
     )
 
+    name_clickable: BoolProperty(
+        name="Clickable Name Row",
+        description="Make the whole scene-name line a button that opens the latest version. "
+                    "Turn off to draw the name flush against the card edge (not clickable)",
+        default=True,
+        update=_on_pref_update,
+    )
+
     def draw(self, context):
         layout = self.layout
         col = layout.column()
@@ -74,6 +82,7 @@ class SVB_AddonPreferences(bpy.types.AddonPreferences):
         col.prop(self, "panel_state")
         col.prop(self, "panel_expanded")
         col.separator()
+        col.prop(self, "name_clickable")
         col.prop(self, "include_blend1")
 
 
